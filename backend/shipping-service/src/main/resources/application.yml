@@ -1,0 +1,74 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: shipping-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/shipping_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.type.mapping: shipping-event:com.btlktpm.shipping.event.ShippingEvent
+    consumer:
+      group-id: shipping-service-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.type.mapping: order-created:com.btlktpm.shipping.event.ShipmentCreatedEvent,order-status-changed:com.btlktpm.shipping.event.ShipmentStatusChangedEvent
+        spring.json.trusted.packages: com.btlktpm.shipping.event
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+carrier:
+  ghn:
+    endpoint: https://dev-online-gateway.ghn.vn/shipping
+    token: dummy_ghn_token
+  ghtk:
+    endpoint: https://services.giaohangtietkiem.vn
+    token: dummy_ghtk_token
+  viettelpost:
+    endpoint: https://viettelpost.com.vn/api
+    token: dummy_viettelpost_token
+
+logging:
+  level:
+    com.btlktpm.shipping: DEBUG
+    org.springframework.web: INFO

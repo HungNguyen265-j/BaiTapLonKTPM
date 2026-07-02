@@ -1,0 +1,34 @@
+# Java
+target/
+*.class
+*.jar
+*.war
+.idea/
+*.iml
+.settings/
+.project
+.classpath
+
+# Node
+node_modules/
+.next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
+*.swo

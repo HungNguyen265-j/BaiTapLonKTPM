@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'spring-boot'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+        - 'gateway-service:8080'
+        - 'product-service:8081'
+        - 'inventory-service:8082'
+        - 'order-service:8083'
+        - 'shipping-service:8085'
+        - 'promotion-service:8086'
+        - 'customer-service:8087'
+        - 'report-service:8088'

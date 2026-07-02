@@ -1,0 +1,259 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      routes:
+        - id: product-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/products/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: productServiceCircuitBreaker
+                fallbackUri: forward:/fallback/products
+            - name: Retry
+              args:
+                retries: 3
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  maxBackoff: 2s
+                  factor: 2
+            - StripPrefix=1
+
+        - id: inventory-service
+          uri: lb://inventory-service
+          predicates:
+            - Path=/api/inventory/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: inventoryServiceCircuitBreaker
+                fallbackUri: forward:/fallback/inventory
+            - name: Retry
+              args:
+                retries: 3
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  maxBackoff: 2s
+                  factor: 2
+            - StripPrefix=1
+
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: orderServiceCircuitBreaker
+                fallbackUri: forward:/fallback/orders
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT
+                methods: GET
+                backoff:
+                  firstBackoff: 300ms
+                  maxBackoff: 3s
+                  factor: 2
+            - StripPrefix=1
+
+        - id: customer-service
+          uri: lb://customer-service
+          predicates:
+            - Path=/api/customers/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: customerServiceCircuitBreaker
+                fallbackUri: forward:/fallback/customers
+            - name: Retry
+              args:
+                retries: 3
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  maxBackoff: 2s
+                  factor: 2
+            - StripPrefix=1
+
+        - id: promotion-service
+          uri: lb://promotion-service
+          predicates:
+            - Path=/api/promotions/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: promotionServiceCircuitBreaker
+                fallbackUri: forward:/fallback/promotions
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  maxBackoff: 2s
+                  factor: 2
+            - StripPrefix=1
+
+        - id: report-service
+          uri: lb://report-service
+          predicates:
+            - Path=/api/reports/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: reportServiceCircuitBreaker
+                fallbackUri: forward:/fallback/reports
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
+                methods: GET
+                backoff:
+                  firstBackoff: 500ms
+                  maxBackoff: 3s
+                  factor: 2
+            - StripPrefix=1
+
+        - id: shipping-service
+          uri: lb://shipping-service
+          predicates:
+            - Path=/api/shipping/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: shippingServiceCircuitBreaker
+                fallbackUri: forward:/fallback/shipping
+            - name: Retry
+              args:
+                retries: 3
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  maxBackoff: 2s
+                  factor: 2
+            - StripPrefix=1
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      connect-timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 4
+          max-wait: 2000ms
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8181/realms/sales-management
+          jwk-set-uri: http://localhost:8181/realms/sales-management/protocol/openid-connect/certs
+
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    fetch-registry: true
+    register-with-eureka: true
+    registry-fetch-interval-seconds: 10
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10000ms
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        sliding-window-type: COUNT_BASED
+    instances:
+      productServiceCircuitBreaker:
+        base-config: default
+      inventoryServiceCircuitBreaker:
+        base-config: default
+      orderServiceCircuitBreaker:
+        base-config: default
+      customerServiceCircuitBreaker:
+        base-config: default
+      promotionServiceCircuitBreaker:
+        base-config: default
+      reportServiceCircuitBreaker:
+        base-config: default
+      shippingServiceCircuitBreaker:
+        base-config: default
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 5s
+    instances:
+      productServiceCircuitBreaker:
+        base-config: default
+      inventoryServiceCircuitBreaker:
+        base-config: default
+      orderServiceCircuitBreaker:
+        base-config: default
+      customerServiceCircuitBreaker:
+        base-config: default
+      promotionServiceCircuitBreaker:
+        base-config: default
+      reportServiceCircuitBreaker:
+        base-config: default
+      shippingServiceCircuitBreaker:
+        base-config: default
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,circuitbreakers,metrics,loggers
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+  health:
+    circuitbreakers:
+      enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    version: 1.0.0
+    description: API Gateway for Multi-Channel Sales Management System
+
+logging:
+  level:
+    root: INFO
+    com.sales.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.security: INFO
+    org.springframework.web: INFO
+    reactor.netty: INFO

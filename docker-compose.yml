@@ -1,0 +1,251 @@
+version: '3.8'
+
+services:
+  # Databases
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: salehub
+      POSTGRES_PASSWORD: salehub123
+      POSTGRES_DB: salehub
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - salehub-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U salehub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: salehub
+      MONGO_INITDB_ROOT_PASSWORD: salehub123
+      MONGO_INITDB_DATABASE: salehub
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - salehub-network
+
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - salehub-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Message brokers
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: salehub
+      RABBITMQ_DEFAULT_PASS: salehub123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - salehub-network
+
+  # Service Discovery
+  eureka-server:
+    image: springcloud/eureka:latest
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_INSTANCE_HOSTNAME=eureka-server
+    networks:
+      - salehub-network
+
+  # Backend Services
+  gateway-service:
+    build: ./backend/gateway-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - eureka-server
+      - redis
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_REDIS_HOST=redis
+    networks:
+      - salehub-network
+
+  product-service:
+    build: ./backend/product-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+      - eureka-server
+      - kafka
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/salehub
+      - SPRING_DATA_MONGODB_URI=mongodb://salehub:salehub123@mongodb:27017/salehub
+      - SPRING_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - salehub-network
+
+  inventory-service:
+    build: ./backend/inventory-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+      - redis
+      - eureka-server
+      - kafka
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/salehub
+      - SPRING_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - salehub-network
+
+  order-service:
+    build: ./backend/order-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - postgres
+      - redis
+      - eureka-server
+      - kafka
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/salehub
+      - SPRING_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - salehub-network
+
+  shipping-service:
+    build: ./backend/shipping-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      - postgres
+      - redis
+      - eureka-server
+      - kafka
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/salehub
+      - SPRING_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - salehub-network
+
+  promotion-service:
+    build: ./backend/promotion-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      - postgres
+      - redis
+      - eureka-server
+      - kafka
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/salehub
+      - SPRING_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - salehub-network
+
+  customer-service:
+    build: ./backend/customer-service
+    ports:
+      - "8087:8087"
+    depends_on:
+      - postgres
+      - redis
+      - eureka-server
+      - kafka
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/salehub
+      - SPRING_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - salehub-network
+
+  report-service:
+    build: ./backend/report-service
+    ports:
+      - "8088:8088"
+    depends_on:
+      - postgres
+      - mongodb
+      - eureka-server
+      - kafka
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/salehub
+      - SPRING_DATA_MONGODB_URI=mongodb://salehub:salehub123@mongodb:27017/salehub
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - salehub-network
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - gateway-service
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api
+    networks:
+      - salehub-network
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - salehub-network
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - salehub-network
+
+volumes:
+  postgres-data:
+  mongo-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  salehub-network:
+    driver: bridge
