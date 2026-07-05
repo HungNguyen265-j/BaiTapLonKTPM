@@ -29,14 +29,14 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
-        spring.json.type.mapping: shipping-event:com.btlktpm.shipping.event.ShippingEvent
+        spring.json.type.mapping: shipping-event:com.sales.shipping.event.ShippingEvent
     consumer:
       group-id: shipping-service-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.type.mapping: order-created:com.btlktpm.shipping.event.ShipmentCreatedEvent,order-status-changed:com.btlktpm.shipping.event.ShipmentStatusChangedEvent
-        spring.json.trusted.packages: com.btlktpm.shipping.event
+        spring.json.type.mapping: order-created:com.sales.shipping.event.ShipmentCreatedEvent,order-status-changed:com.sales.shipping.event.ShipmentStatusChangedEvent
+        spring.json.trusted.packages: com.sales.shipping.event
 
 eureka:
   client:
@@ -70,5 +70,5 @@ carrier:
 
 logging:
   level:
-    com.btlktpm.shipping: DEBUG
+    com.sales.shipping: DEBUG
     org.springframework.web: INFO

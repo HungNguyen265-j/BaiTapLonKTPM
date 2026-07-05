@@ -1,14 +1,13 @@
 package com.sales.product.config;
 
+import java.util.Map;
+
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
-import org.springframework.kafka.support.converter.Jackson2JavaTypeMapper;
 import org.springframework.kafka.support.converter.JsonMessageConverter;
 import org.springframework.kafka.support.mapping.DefaultJackson2JavaTypeMapper;
-
-import java.util.Map;
 
 @Configuration
 public class KafkaConfig {
@@ -32,7 +31,7 @@ public class KafkaConfig {
     @Bean
     public JsonMessageConverter jsonMessageConverter() {
         DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
-        typeMapper.setTypePrecedence(Jackson2JavaTypeMapper.TypePrecedence.TYPE_ID);
+        typeMapper.setTypePrecedence(DefaultJackson2JavaTypeMapper.TypePrecedence.TYPE_ID);
         typeMapper.setIdClassMapping(Map.of(
                 "com.sales.product.event.ProductCreatedEvent",
                 com.sales.product.event.ProductCreatedEvent.class,

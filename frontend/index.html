@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SaleHub - Multi-Channel Sales Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased">
+
+<!-- Login Page -->
+<div id="login-page" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 via-indigo-800 to-purple-900">
+  <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-2xl mb-4"><svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg></div>
+      <h1 class="text-2xl font-bold text-gray-900">SaleHub</h1>
+      <p class="text-sm text-gray-500 mt-1">Multi-Channel Sales Management</p>
+    </div>
+    <form id="login-form" class="space-y-4">
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">Email</label><input type="email" value="admin@salehub.com" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" /></div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">Password</label><input type="password" value="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" /></div>
+      <button type="submit" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- App Shell -->
+<div id="app-shell" class="hidden min-h-screen flex">
+  <!-- Sidebar -->
+  <aside class="w-64 bg-white border-r border-gray-200 fixed h-screen flex flex-col z-30">
+    <div class="p-5 border-b border-gray-100">
+      <div class="flex items-center gap-3"><div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center"><span class="text-white font-bold text-sm">SH</span></div><div><span class="font-bold text-lg">SaleHub</span><span class="text-xs text-gray-400 block">Management</span></div></div>
+    </div>
+    <nav class="flex-1 overflow-y-auto p-3 space-y-1">
+      <div class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border-l-3 border-transparent" data-screen="dashboard"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>Dashboard</div>
+      <div class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border-l-3 border-transparent" data-screen="products"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"/></svg>Products</div>
+      <div class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border-l-3 border-transparent" data-screen="channels"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>Channels</div>
+      <div class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border-l-3 border-transparent" data-screen="inventory"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>Inventory</div>
+      <div class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border-l-3 border-transparent" data-screen="orders"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Orders</div>
+      <div class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border-l-3 border-transparent" data-screen="shipping"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>Shipping</div>
+      <div class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border-l-3 border-transparent" data-screen="promotions"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>Promotions</div>
+      <div class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border-l-3 border-transparent" data-screen="customers"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/></svg>Customers</div>
+      <div class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border-l-3 border-transparent" data-screen="reports"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Reports</div>
+      <div class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border-l-3 border-transparent" data-screen="settings"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Settings</div>
+    </nav>
+    <div class="p-3 border-t border-gray-100"><div class="flex items-center gap-3 px-3 py-2"><div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold text-xs">AD</div><div class="flex-1"><div class="text-sm font-medium">Admin User</div><div class="text-xs text-gray-400">admin@salehub.com</div></div></div></div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="ml-64 flex-1 flex flex-col min-h-screen">
+    <!-- Topbar -->
+    <header class="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 sticky top-0 z-20">
+      <h2 id="screen-title" class="text-lg font-semibold text-gray-800">Dashboard</h2>
+      <div class="flex items-center gap-4">
+        <button class="relative p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></button>
+        <button id="logout-btn" class="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>Logout</button>
+      </div>
+    </header>
+
+    <!-- Screen: Dashboard -->
+    <div id="screen-dashboard" class="screen p-6 space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div class="bg-white rounded-xl border p-5"><div class="flex items-center justify-between"><div><p class="text-sm text-gray-500">Total Revenue</p><p id="stat-total-revenue" class="text-2xl font-bold mt-1">-</p></div><div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div></div></div>
+        <div class="bg-white rounded-xl border p-5"><div class="flex items-center justify-between"><div><p class="text-sm text-gray-500">Total Orders</p><p id="stat-total-orders" class="text-2xl font-bold mt-1">-</p></div><div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div></div></div>
+        <div class="bg-white rounded-xl border p-5"><div class="flex items-center justify-between"><div><p class="text-sm text-gray-500">Avg Order Value</p><p id="stat-avg-order" class="text-2xl font-bold mt-1">-</p></div><div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div></div></div>
+        <div class="bg-white rounded-xl border p-5"><div class="flex items-center justify-between"><div><p class="text-sm text-gray-500">Conversion Rate</p><p id="stat-conversion" class="text-2xl font-bold mt-1">-</p></div><div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg></div></div></div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl border p-5"><h3 class="font-semibold mb-4">Sales Trend (30 days)</h3><canvas id="salesChart" height="200"></canvas></div>
+        <div class="bg-white rounded-xl border p-5"><h3 class="font-semibold mb-4">Revenue by Channel</h3><canvas id="channelChart" height="200"></canvas></div>
+      </div>
+
+      <div class="bg-white rounded-xl border"><div class="p-5 border-b"><h3 class="font-semibold">Recent Orders</h3></div><div class="overflow-x-auto"><table class="w-full"><thead><tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase"><th class="p-3 font-medium">Order</th><th class="p-3 font-medium">Customer</th><th class="p-3 font-medium">Channel</th><th class="p-3 font-medium">Total</th><th class="p-3 font-medium">Status</th><th class="p-3 font-medium">Date</th></tr></thead><tbody id="recent-orders-body"></tbody></table></div></div>
+    </div>
+
+    <!-- Screen: Products -->
+    <div id="screen-products" class="screen hidden p-6 space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3 flex-wrap"><input id="products-search" type="text" placeholder="Search products..." class="px-4 py-2 border border-gray-300 rounded-lg text-sm w-64 outline-none focus:ring-2 focus:ring-indigo-500" /><select id="products-filter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"><option value="All">All Status</option><option value="Active">Active</option><option value="Draft">Draft</option><option value="Archived">Archived</option></select></div>
+        <button onclick="openAddProductModal()" class="btn-primary flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>Add Product</button>
+      </div>
+      <div class="bg-white rounded-xl border overflow-x-auto"><table class="w-full"><thead><tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase"><th class="p-3 font-medium">Product</th><th class="p-3 font-medium">Name</th><th class="p-3 font-medium">Category</th><th class="p-3 font-medium">Price</th><th class="p-3 font-medium">Stock</th><th class="p-3 font-medium">Status</th></tr></thead><tbody id="products-body"></tbody></table></div>
+      <div class="flex items-center justify-between"><span id="products-info" class="text-sm text-gray-500"></span><div class="flex items-center gap-2"><button id="products-prev" class="btn-secondary text-sm px-3 py-1.5"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg> Prev</button><span id="products-page" class="text-sm font-medium px-3">1</span><button id="products-next" class="btn-secondary text-sm px-3 py-1.5">Next <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button></div></div>
+    </div>
+
+    <!-- Screen: Channels -->
+    <div id="screen-channels" class="screen hidden p-6"><div id="channels-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div></div>
+
+    <!-- Screen: Inventory -->
+    <div id="screen-inventory" class="screen hidden p-6"><div id="inventory-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div>
+
+    <!-- Screen: Orders -->
+    <div id="screen-orders" class="screen hidden p-6 space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3 flex-wrap"><input id="orders-search" type="text" placeholder="Search orders..." class="px-4 py-2 border border-gray-300 rounded-lg text-sm w-64 outline-none focus:ring-2 focus:ring-indigo-500" /><select id="orders-status-filter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"><option value="All">All Status</option><option>Pending</option><option>Confirmed</option><option>Processing</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option><option>Returned</option></select></div>
+      </div>
+      <div class="bg-white rounded-xl border overflow-x-auto"><table class="w-full"><thead><tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase"><th class="p-3 font-medium">Order ID</th><th class="p-3 font-medium">Customer</th><th class="p-3 font-medium">Channel</th><th class="p-3 font-medium">Items</th><th class="p-3 font-medium">Total</th><th class="p-3 font-medium">Status</th><th class="p-3 font-medium">Date</th></tr></thead><tbody id="orders-body"></tbody></table></div>
+    </div>
+
+    <!-- Screen: Shipping -->
+    <div id="screen-shipping" class="screen hidden p-6 space-y-5">
+      <div id="carrier-cards" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4"></div>
+      <div class="bg-white rounded-xl border overflow-x-auto"><table class="w-full"><thead><tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase"><th class="p-3 font-medium">Shipment</th><th class="p-3 font-medium">Order</th><th class="p-3 font-medium">Carrier</th><th class="p-3 font-medium">Tracking</th><th class="p-3 font-medium">Status</th><th class="p-3 font-medium">Weight</th><th class="p-3 font-medium">Fee</th><th class="p-3 font-medium">Est. Delivery</th></tr></thead><tbody id="shipments-body"></tbody></table></div>
+    </div>
+
+    <!-- Screen: Promotions -->
+    <div id="screen-promotions" class="screen hidden p-6">
+      <div class="bg-white rounded-xl border overflow-x-auto"><table class="w-full"><thead><tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase"><th class="p-3 font-medium">Promotion</th><th class="p-3 font-medium">Discount</th><th class="p-3 font-medium">Min Order</th><th class="p-3 font-medium">Usage</th><th class="p-3 font-medium w-32">Progress</th><th class="p-3 font-medium">Status</th><th class="p-3 font-medium">Period</th></tr></thead><tbody id="promotions-body"></tbody></table></div>
+    </div>
+
+    <!-- Screen: Customers -->
+    <div id="screen-customers" class="screen hidden p-6 space-y-5">
+      <div class="flex items-center"><input id="customers-search" type="text" placeholder="Search customers..." class="px-4 py-2 border border-gray-300 rounded-lg text-sm w-96 outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+      <div class="bg-white rounded-xl border overflow-x-auto"><table class="w-full"><thead><tr class="bg-gray-50 text-left text-xs text-gray-500 uppercase"><th class="p-3 font-medium">Customer</th><th class="p-3 font-medium">Phone</th><th class="p-3 font-medium">Orders</th><th class="p-3 font-medium">Total Spent</th><th class="p-3 font-medium">Segment</th><th class="p-3 font-medium">Last Order</th></tr></thead><tbody id="customers-body"></tbody></table></div>
+    </div>
+
+    <!-- Screen: Reports -->
+    <div id="screen-reports" class="screen hidden p-6 space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div class="bg-white rounded-xl border p-5"><p class="text-sm text-gray-500">Total Revenue</p><p id="report-revenue" class="text-2xl font-bold mt-1">-</p></div>
+        <div class="bg-white rounded-xl border p-5"><p class="text-sm text-gray-500">Total Orders</p><p id="report-orders" class="text-2xl font-bold mt-1">-</p></div>
+        <div class="bg-white rounded-xl border p-5"><p class="text-sm text-gray-500">Avg Order Value</p><p id="report-avg" class="text-2xl font-bold mt-1">-</p></div>
+        <div class="bg-white rounded-xl border p-5"><p class="text-sm text-gray-500">Returning Rate</p><p id="report-returning" class="text-2xl font-bold mt-1">-</p></div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl border p-5"><h3 class="font-semibold mb-4">Top Products</h3><table class="w-full"><thead><tr class="text-left text-xs text-gray-500 uppercase border-b"><th class="p-2 font-medium">#</th><th class="p-2 font-medium">Product</th><th class="p-2 font-medium">Sold</th><th class="p-2 font-medium">Revenue</th></tr></thead><tbody id="top-products-body"></tbody></table></div>
+        <div class="bg-white rounded-xl border p-5"><h3 class="font-semibold mb-4">Channel Breakdown</h3><div id="channel-breakdown"></div></div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl border p-5"><h3 class="font-semibold mb-4">Sales Trend</h3><canvas id="reports-sales-chart" height="180"></canvas></div>
+        <div class="bg-white rounded-xl border p-5"><h3 class="font-semibold mb-4">Channel Revenue</h3><canvas id="reports-channel-chart" height="180"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Screen: Settings -->
+    <div id="screen-settings" class="screen hidden p-6">
+      <div class="bg-white rounded-xl border p-6 max-w-2xl"><h3 class="font-semibold text-lg mb-6">Store Settings</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Store Name</label><input id="settings-store-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Email</label><input id="settings-email" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Phone</label><input id="settings-phone" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Address</label><input id="settings-address" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Currency</label><select id="settings-currency" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"><option>VND</option><option>USD</option></select></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Timezone</label><select id="settings-timezone" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"><option>Asia/Ho_Chi_Minh</option><option>Asia/Bangkok</option><option>Asia/Singapore</option></select></div>
+        </div>
+        <div class="mt-5"><label class="block text-sm font-medium text-gray-700 mb-1">Low Stock Threshold</label><input id="settings-low-stock" type="number" class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+        <div class="mt-5 space-y-3"><h4 class="text-sm font-medium text-gray-700">Notifications</h4><label class="flex items-center gap-2"><input id="settings-auto-sync" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" /><span class="text-sm">Auto-sync orders from channels</span></label><label class="flex items-center gap-2"><input id="settings-notify-email" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" /><span class="text-sm">Email notifications</span></label><label class="flex items-center gap-2"><input id="settings-notify-sms" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" /><span class="text-sm">SMS notifications</span></label></div>
+        <button id="settings-save-btn" class="btn-primary mt-6">Save Settings</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Product Detail Panel -->
+<div id="product-detail-panel" class="hidden"></div>
+<!-- Order Detail Panel -->
+<div id="order-detail-panel" class="hidden"></div>
+
+<!-- Add Product Modal -->
+<div id="add-product-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
+  <div class="absolute inset-0 bg-black/40" onclick="closeAddProductModal()"></div>
+  <div class="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+    <div class="flex justify-between items-center mb-5"><h3 class="text-lg font-bold">Add Product</h3><button onclick="closeAddProductModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button></div>
+    <form id="add-product-form" class="space-y-4">
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">Product Name *</label><input id="new-product-name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">SKU *</label><input id="new-product-sku" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">Category</label><input id="new-product-category" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">Price *</label><input id="new-product-price" type="number" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">Stock</label><input id="new-product-stock" type="number" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+      <div class="flex gap-3 justify-end pt-2"><button type="button" onclick="closeAddProductModal()" class="btn-secondary">Cancel</button><button type="submit" class="btn-primary">Add Product</button></div>
+    </form>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

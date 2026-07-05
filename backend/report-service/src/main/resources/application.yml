@@ -32,8 +32,6 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      properties:
-        spring.json.type.mapping: event:com.reportservice.event.ReportEventHandler
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -67,6 +65,6 @@ feign:
 
 logging:
   level:
-    com.reportservice: DEBUG
+    com.sales.report: DEBUG
     org.springframework.cloud.openfeign: DEBUG
     feign: DEBUG
