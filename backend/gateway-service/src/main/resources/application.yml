@@ -1,4 +1,4 @@
-server:
+﻿server:
   port: 8080
 
 spring:
@@ -6,6 +6,11 @@ spring:
     name: gateway-service
   cloud:
     gateway:
+      default-filters:
+        # Các service phía sau tự gắn header CORS (giá trị có thể khác gateway) -> giữ bản của gateway, bỏ phần còn lại
+        - DedupeResponseHeader=Access-Control-Allow-Origin, RETAIN_FIRST
+        - DedupeResponseHeader=Vary, RETAIN_UNIQUE
+        - RemoveResponseHeader=Access-Control-Allow-Credentials
       routes:
         - id: product-service
           uri: lb://product-service
@@ -25,7 +30,16 @@ spring:
                   firstBackoff: 200ms
                   maxBackoff: 2s
                   factor: 2
-            - StripPrefix=1
+
+        - id: product-catalog
+          uri: lb://product-service
+          predicates:
+            - Path=/api/categories/**,/api/brands/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: productServiceCircuitBreaker
+                fallbackUri: forward:/fallback/products
 
         - id: inventory-service
           uri: lb://inventory-service
@@ -45,7 +59,6 @@ spring:
                   firstBackoff: 200ms
                   maxBackoff: 2s
                   factor: 2
-            - StripPrefix=1
 
         - id: order-service
           uri: lb://order-service
@@ -65,7 +78,16 @@ spring:
                   firstBackoff: 300ms
                   maxBackoff: 3s
                   factor: 2
-            - StripPrefix=1
+
+        - id: auth-service
+          uri: lb://customer-service
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: customerServiceCircuitBreaker
+                fallbackUri: forward:/fallback/auth
 
         - id: customer-service
           uri: lb://customer-service
@@ -85,7 +107,6 @@ spring:
                   firstBackoff: 200ms
                   maxBackoff: 2s
                   factor: 2
-            - StripPrefix=1
 
         - id: promotion-service
           uri: lb://promotion-service
@@ -105,7 +126,6 @@ spring:
                   firstBackoff: 200ms
                   maxBackoff: 2s
                   factor: 2
-            - StripPrefix=1
 
         - id: report-service
           uri: lb://report-service
@@ -125,7 +145,6 @@ spring:
                   firstBackoff: 500ms
                   maxBackoff: 3s
                   factor: 2
-            - StripPrefix=1
 
         - id: shipping-service
           uri: lb://shipping-service
@@ -145,7 +164,6 @@ spring:
                   firstBackoff: 200ms
                   maxBackoff: 2s
                   factor: 2
-            - StripPrefix=1
 
   data:
     redis:
@@ -209,7 +227,7 @@ resilience4j:
   timelimiter:
     configs:
       default:
-        timeout-duration: 5s
+        timeout-duration: 10s
     instances:
       productServiceCircuitBreaker:
         base-config: default

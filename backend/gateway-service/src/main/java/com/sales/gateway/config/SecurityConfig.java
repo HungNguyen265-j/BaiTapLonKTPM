@@ -1,6 +1,7 @@
 package com.sales.gateway.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -23,8 +24,19 @@ public class SecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:http://localhost:8181/realms/sales-management}")
     private String issuerUri;
 
+    // Demo mode: set APP_SECURITY_ENABLED=false to bypass Keycloak (no identity provider in docker-compose)
+    @Value("${app.security.enabled:true}")
+    private boolean securityEnabled;
+
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+        if (!securityEnabled) {
+            return http
+                    .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                    .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                    .authorizeExchange(exchanges -> exchanges.anyExchange().permitAll())
+                    .build();
+        }
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -56,6 +68,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "app.security.enabled", havingValue = "true", matchIfMissing = true)
     public ReactiveJwtDecoder jwtDecoder() {
         return ReactiveJwtDecoders.fromIssuerLocation(issuerUri);
     }

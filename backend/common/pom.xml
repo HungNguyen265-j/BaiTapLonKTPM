@@ -4,10 +4,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.sales</groupId>
-        <artifactId>salehub-backend</artifactId>
-        <version>1.0.0</version>
-        <relativePath>../pom.xml</relativePath>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.0</version>
+        <relativePath/>
     </parent>
 
     <groupId>com.sales</groupId>
@@ -16,7 +16,6 @@
     <packaging>jar</packaging>
 
     <dependencies>
-
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

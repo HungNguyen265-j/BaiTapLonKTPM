@@ -22,6 +22,9 @@ public class OrderItemRequest {
     @NotBlank
     private String sku;
 
+    private String productName;
+    private String imageUrl;
+
     @Min(1)
     private Integer quantity;
 

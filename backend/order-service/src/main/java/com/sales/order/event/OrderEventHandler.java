@@ -17,7 +17,7 @@ public class OrderEventHandler {
     private final OrderService orderService;
     private final ObjectMapper objectMapper;
 
-    @KafkaHandler
+    @KafkaHandler(isDefault = true)
     public void handleOrderEvent(OrderEvent event) {
         log.info("Received order event: type={}, orderId={}", event.getEventType(), event.getOrderId());
     }

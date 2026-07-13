@@ -1,6 +1,13 @@
 package com.sales.order.service;
 
-import com.sales.order.dto.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sales.order.dto.OrderItemRequest;
+import com.sales.order.dto.OrderRequest;
+import com.sales.order.dto.OrderResponse;
+import com.sales.order.dto.OrderSearchCriteria;
+import com.sales.order.dto.OrderStatusUpdateRequest;
+import com.sales.order.dto.PageResponse;
+import com.sales.order.dto.PaymentResponse;
 import com.sales.order.event.OrderCreatedEvent;
 import com.sales.order.event.OrderEvent;
 import com.sales.order.event.OrderStatusChangedEvent;
@@ -13,310 +20,370 @@ import com.sales.order.model.OrderHistory;
 import com.sales.order.model.OrderItem;
 import com.sales.order.model.PaymentInfo;
 import com.sales.order.repository.OrderHistoryRepository;
-import com.sales.order.repository.OrderItemRepository;
 import com.sales.order.repository.OrderRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class OrderServiceImpl implements OrderService {
 
+    private static final String ORDER_EVENTS_TOPIC = "order-events";
+    private static final String ORDER_STATUS_CHANGED_TOPIC = "order-status-changed";
+    private static final String SYSTEM_USER = "system";
+
+    private static final Set<OrderStatus> TERMINAL_STATUSES =
+            EnumSet.of(OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REFUNDED);
+    private static final Set<OrderStatus> NON_CANCELLABLE_STATUSES =
+            EnumSet.of(OrderStatus.SHIPPING, OrderStatus.DELIVERED, OrderStatus.COMPLETED,
+                    OrderStatus.CANCELLED, OrderStatus.REFUNDED);
+    private static final Set<String> SORTABLE_FIELDS =
+            Set.of("createdAt", "updatedAt", "totalAmount", "orderCode", "status");
+
     private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
     private final OrderHistoryRepository orderHistoryRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
-
-    private static final Map<OrderStatus, Set<OrderStatus>> VALID_TRANSITIONS = Map.of(
-            OrderStatus.PENDING, Set.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED),
-            OrderStatus.CONFIRMED, Set.of(OrderStatus.PROCESSING, OrderStatus.CANCELLED),
-            OrderStatus.PROCESSING, Set.of(OrderStatus.SHIPPING, OrderStatus.CANCELLED),
-            OrderStatus.SHIPPING, Set.of(OrderStatus.DELIVERED),
-            OrderStatus.DELIVERED, Set.of(OrderStatus.COMPLETED),
-            OrderStatus.CANCELLED, Set.of(OrderStatus.REFUNDED),
-            OrderStatus.COMPLETED, Collections.emptySet(),
-            OrderStatus.REFUNDED, Collections.emptySet()
-    );
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional
-    @CacheEvict(value = "orders", allEntries = true)
     public OrderResponse createOrder(OrderRequest request) {
+        UUID customerId = parseUuid(request.getCustomerId(), "customerId");
         OrderSource source = parseSource(request.getSource());
 
         Order order = Order.builder()
-                .customerId(UUID.fromString(request.getCustomerId()))
+                .customerId(customerId)
                 .customerName(request.getCustomerName())
                 .customerEmail(request.getCustomerEmail())
                 .customerPhone(request.getCustomerPhone())
-                .customerAddress(request.getCustomerAddress() != null ? request.getCustomerAddress() : request.getShippingAddress())
+                .customerAddress(request.getShippingAddress() != null
+                        ? request.getShippingAddress() : request.getCustomerAddress())
                 .source(source)
                 .paymentMethod(request.getPaymentMethod())
+                .paymentStatus(PaymentInfo.PaymentStatus.PENDING.name())
                 .notes(request.getNotes())
                 .build();
 
         BigDecimal subtotal = BigDecimal.ZERO;
-        List<OrderItem> items = new ArrayList<>();
-
-        for (OrderItemRequest itemReq : request.getItems()) {
-            BigDecimal unitPrice = itemReq.getUnitPrice();
-            BigDecimal totalPrice = unitPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
-
+        for (OrderItemRequest itemRequest : request.getItems()) {
+            BigDecimal lineTotal = itemRequest.getUnitPrice()
+                    .multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
             OrderItem item = OrderItem.builder()
                     .order(order)
-                    .productId(UUID.fromString(itemReq.getProductId()))
-                    .sku(itemReq.getSku())
-                    .quantity(itemReq.getQuantity())
-                    .unitPrice(unitPrice)
-                    .totalPrice(totalPrice)
+                    .productId(parseUuid(itemRequest.getProductId(), "productId"))
+                    .sku(itemRequest.getSku())
+                    .productName(itemRequest.getProductName() != null && !itemRequest.getProductName().isBlank()
+                            ? itemRequest.getProductName() : itemRequest.getSku())
+                    .imageUrl(itemRequest.getImageUrl())
+                    .quantity(itemRequest.getQuantity())
+                    .unitPrice(itemRequest.getUnitPrice())
+                    .discountAmount(BigDecimal.ZERO)
+                    .totalPrice(lineTotal)
                     .build();
-
-            items.add(item);
-            subtotal = subtotal.add(totalPrice);
+            order.getOrderItems().add(item);
+            subtotal = subtotal.add(lineTotal);
         }
-
         order.setSubtotal(subtotal);
         order.setDiscountAmount(BigDecimal.ZERO);
         order.setShippingFee(BigDecimal.ZERO);
         order.setTaxAmount(BigDecimal.ZERO);
         order.setTotalAmount(subtotal);
 
-        order = orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        saved.getHistories().add(recordHistory(saved, null, saved.getStatus(), "Tạo đơn hàng"));
 
-        for (OrderItem item : items) {
-            item.setOrder(order);
-        }
-        orderItemRepository.saveAll(items);
-        order.setOrderItems(items);
-
-        publishEvent(createOrderEvent(order, request));
-
-        log.info("Order created: code={}, id={}", order.getOrderCode(), order.getId());
-        return mapToResponse(order);
+        publishOrderCreated(saved);
+        log.info("Đã tạo đơn hàng {} (nguồn {}, tổng tiền {})",
+                saved.getOrderCode(), saved.getSource(), saved.getTotalAmount());
+        return toResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
     public OrderResponse getOrder(UUID id) {
-        Order order = findOrderById(id);
-        return mapToResponse(order);
+        return toResponse(findOrder(id));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public OrderResponse getOrderByCode(String orderCode) {
         Order order = orderRepository.findByOrderCode(orderCode)
-                .orElseThrow(() -> new OrderNotFoundException("Order not found by code: " + orderCode));
-        return mapToResponse(order);
+                .orElseThrow(() -> new OrderNotFoundException(
+                        "Không tìm thấy đơn hàng với mã: " + orderCode));
+        return toResponse(order);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PageResponse<OrderResponse> searchOrders(OrderSearchCriteria criteria) {
+        Sort.Direction direction = "asc".equalsIgnoreCase(criteria.getSortDir())
+                ? Sort.Direction.ASC : Sort.Direction.DESC;
+        String sortBy = SORTABLE_FIELDS.contains(criteria.getSortBy())
+                ? criteria.getSortBy() : "createdAt";
         Pageable pageable = PageRequest.of(
-                criteria.getPage(),
-                criteria.getSize(),
-                Sort.by(Sort.Direction.fromString(criteria.getSortDir()), criteria.getSortBy())
-        );
+                Math.max(criteria.getPage(), 0),
+                criteria.getSize() > 0 ? criteria.getSize() : 20,
+                Sort.by(direction, sortBy));
 
-        LocalDateTime startDate = criteria.getStartDate() != null ?
-                LocalDateTime.parse(criteria.getStartDate()) : null;
-        LocalDateTime endDate = criteria.getEndDate() != null ?
-                LocalDateTime.parse(criteria.getEndDate()) : null;
-        String customerIdStr = criteria.getCustomerId() != null ?
-                criteria.getCustomerId().toString() : null;
-
-        List<Order> orders = orderRepository.searchOrders(
-                criteria.getKeyword(),
-                criteria.getStatus(),
-                criteria.getSource(),
-                customerIdStr,
-                startDate,
-                endDate
-        );
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), orders.size());
-        List<Order> paged = orders.subList(start, end);
-        Page<Order> orderPage = new PageImpl<>(paged, pageable, orders.size());
-
-        return PageResponse.from(orderPage.map(this::mapToResponse));
+        Page<Order> result = orderRepository.findAll(buildSpecification(criteria), pageable);
+        return PageResponse.<OrderResponse>builder()
+                .content(result.getContent().stream().map(this::toResponse).toList())
+                .page(result.getNumber())
+                .size(result.getSize())
+                .totalElements(result.getTotalElements())
+                .totalPages(result.getTotalPages())
+                .last(result.isLast())
+                .build();
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = "orders", key = "#id")
     public OrderResponse updateStatus(UUID id, OrderStatusUpdateRequest request) {
-        Order order = findOrderById(id);
+        Order order = findOrder(id);
         OrderStatus newStatus = parseStatus(request.getNewStatus());
         OrderStatus currentStatus = order.getStatus();
 
-        if (!isValidTransition(currentStatus, newStatus)) {
+        if (currentStatus == newStatus) {
+            return toResponse(order);
+        }
+        if (TERMINAL_STATUSES.contains(currentStatus)) {
             throw new InvalidOrderStatusException(
-                    "Cannot transition from " + currentStatus + " to " + newStatus);
+                    "Đơn hàng đang ở trạng thái " + currentStatus + " nên không thể chuyển sang " + newStatus);
         }
 
-        OrderStatus oldStatus = order.getStatus();
         order.setStatus(newStatus);
-        order = orderRepository.save(order);
-
-        addHistory(order, oldStatus, newStatus, "SYSTEM", request.getNote());
-
-        publishEvent(createStatusChangedEvent(order, oldStatus, newStatus));
-
-        log.info("Order {} status changed: {} -> {}", order.getOrderCode(), oldStatus, newStatus);
-        return mapToResponse(order);
+        Order saved = orderRepository.save(order);
+        recordHistory(saved, currentStatus, newStatus, request.getNote());
+        publishStatusChanged(saved, currentStatus, newStatus);
+        return toResponse(saved);
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = "orders", key = "#id")
     public OrderResponse cancelOrder(UUID id) {
-        Order order = findOrderById(id);
-
-        if (order.getStatus() == OrderStatus.SHIPPING ||
-                order.getStatus() == OrderStatus.DELIVERED ||
-                order.getStatus() == OrderStatus.COMPLETED) {
+        Order order = findOrder(id);
+        OrderStatus currentStatus = order.getStatus();
+        if (NON_CANCELLABLE_STATUSES.contains(currentStatus)) {
             throw new InvalidOrderStatusException(
-                    "Cannot cancel order in status: " + order.getStatus());
+                    "Không thể hủy đơn hàng đang ở trạng thái " + currentStatus);
         }
 
-        OrderStatus oldStatus = order.getStatus();
         order.setStatus(OrderStatus.CANCELLED);
-        order = orderRepository.save(order);
-
-        addHistory(order, oldStatus, OrderStatus.CANCELLED, "SYSTEM", "Order cancelled");
-
-        publishEvent(createStatusChangedEvent(order, oldStatus, OrderStatus.CANCELLED));
-
-        log.info("Order cancelled: code={}", order.getOrderCode());
-        return mapToResponse(order);
+        Order saved = orderRepository.save(order);
+        recordHistory(saved, currentStatus, OrderStatus.CANCELLED, "Hủy đơn hàng");
+        publishStatusChanged(saved, currentStatus, OrderStatus.CANCELLED);
+        return toResponse(saved);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<OrderResponse.OrderHistoryResponse> getOrderHistory(UUID id) {
-        findOrderById(id);
-        List<OrderHistory> histories = orderHistoryRepository.findByOrderIdOrderByCreatedAtDesc(id);
-        return histories.stream().map(this::mapToHistoryResponse).collect(Collectors.toList());
+        findOrder(id);
+        return orderHistoryRepository.findByOrderIdOrderByCreatedAtDesc(id).stream()
+                .map(this::toHistoryResponse)
+                .toList();
     }
 
     @Override
     @Transactional
     public OrderResponse processWebhook(String source, Object webhookPayload) {
-        log.info("Processing webhook from source={}, payload={}", source, webhookPayload);
-        return null;
+        OrderSource orderSource = parseSource(source);
+
+        OrderRequest request;
+        try {
+            request = objectMapper.convertValue(webhookPayload, OrderRequest.class);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidOrderStatusException("Payload webhook không hợp lệ: " + e.getMessage());
+        }
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new InvalidOrderStatusException("Payload webhook thiếu danh sách items");
+        }
+        // Khách từ kênh ngoài có thể chưa liên kết với CRM
+        if (request.getCustomerId() == null || request.getCustomerId().isBlank()) {
+            request.setCustomerId(UUID.randomUUID().toString());
+        }
+        request.setSource(orderSource.name());
+
+        OrderResponse created = createOrder(request);
+
+        if (webhookPayload instanceof Map<?, ?> payloadMap) {
+            Object channelOrderId = payloadMap.get("channelOrderId");
+            if (channelOrderId != null) {
+                Order order = findOrder(created.getId());
+                order.setChannelOrderId(channelOrderId.toString());
+                created = toResponse(orderRepository.save(order));
+            }
+        }
+        return created;
     }
 
-    private Order findOrderById(UUID id) {
+    private Order findOrder(UUID id) {
         return orderRepository.findById(id)
-                .orElseThrow(() -> new OrderNotFoundException("Order not found: " + id));
+                .orElseThrow(() -> new OrderNotFoundException("Không tìm thấy đơn hàng với id: " + id));
     }
 
-    private OrderSource parseSource(String source) {
-        try {
-            return OrderSource.valueOf(source.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return OrderSource.API;
-        }
+    private Specification<Order> buildSpecification(OrderSearchCriteria criteria) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (criteria.getKeyword() != null && !criteria.getKeyword().isBlank()) {
+                String pattern = "%" + criteria.getKeyword().trim().toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("orderCode")), pattern),
+                        cb.like(cb.lower(root.get("customerName")), pattern),
+                        cb.like(cb.lower(root.get("customerEmail")), pattern)));
+            }
+            if (criteria.getStatus() != null && !criteria.getStatus().isBlank()) {
+                predicates.add(cb.equal(root.get("status"), parseStatus(criteria.getStatus())));
+            }
+            if (criteria.getSource() != null && !criteria.getSource().isBlank()) {
+                predicates.add(cb.equal(root.get("source"), parseSource(criteria.getSource())));
+            }
+            if (criteria.getCustomerId() != null) {
+                predicates.add(cb.equal(root.get("customerId"), criteria.getCustomerId()));
+            }
+            LocalDateTime start = parseDate(criteria.getStartDate(), false);
+            if (start != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), start));
+            }
+            LocalDateTime end = parseDate(criteria.getEndDate(), true);
+            if (end != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), end));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
-    private OrderStatus parseStatus(String status) {
-        try {
-            return OrderStatus.valueOf(status.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new InvalidOrderStatusException("Invalid status: " + status);
-        }
-    }
-
-    private boolean isValidTransition(OrderStatus from, OrderStatus to) {
-        return VALID_TRANSITIONS.getOrDefault(from, Collections.emptySet()).contains(to);
-    }
-
-    private void addHistory(Order order, OrderStatus from, OrderStatus to, String changedBy, String note) {
+    private OrderHistory recordHistory(Order order, OrderStatus fromStatus, OrderStatus toStatus, String note) {
         OrderHistory history = OrderHistory.builder()
                 .order(order)
-                .fromStatus(from)
-                .toStatus(to)
-                .changedBy(changedBy)
+                .fromStatus(fromStatus)
+                .toStatus(toStatus)
+                .changedBy(SYSTEM_USER)
                 .note(note)
                 .build();
-        orderHistoryRepository.save(history);
+        return orderHistoryRepository.save(history);
     }
 
-    private void publishEvent(OrderEvent event) {
+    private void publishOrderCreated(Order order) {
+        OrderCreatedEvent event = new OrderCreatedEvent();
+        fillBaseEvent(event, order, "ORDER_CREATED");
+        event.setCustomerId(order.getCustomerId().toString());
+        event.setTotal(order.getTotalAmount());
+        event.setItems(order.getOrderItems().stream().map(item -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("productId", item.getProductId().toString());
+            map.put("sku", item.getSku());
+            map.put("quantity", item.getQuantity());
+            map.put("unitPrice", item.getUnitPrice());
+            return map;
+        }).toList());
+        sendEvent(ORDER_EVENTS_TOPIC, order, event);
+    }
+
+    private void publishStatusChanged(Order order, OrderStatus fromStatus, OrderStatus toStatus) {
+        OrderStatusChangedEvent event = new OrderStatusChangedEvent();
+        fillBaseEvent(event, order, "ORDER_STATUS_CHANGED");
+        event.setFromStatus(fromStatus != null ? fromStatus.name() : null);
+        event.setToStatus(toStatus.name());
+        sendEvent(ORDER_STATUS_CHANGED_TOPIC, order, event);
+    }
+
+    private void fillBaseEvent(OrderEvent event, Order order, String eventType) {
+        event.setEventId(OrderEvent.generateEventId());
+        event.setOrderId(order.getId().toString());
+        event.setOrderCode(order.getOrderCode());
+        event.setEventType(eventType);
+        event.setTimestamp(LocalDateTime.now());
+    }
+
+    private void sendEvent(String topic, Order order, OrderEvent event) {
+        // Kafka lỗi không được làm hỏng giao dịch đặt hàng
         try {
-            kafkaTemplate.send("order-events", event);
+            kafkaTemplate.send(topic, order.getId().toString(), event);
         } catch (Exception e) {
-            log.warn("Failed to publish event: {}", e.getMessage());
+            log.warn("Không gửi được sự kiện {} cho đơn {}: {}",
+                    event.getEventType(), order.getOrderCode(), e.getMessage());
         }
     }
 
-    private OrderCreatedEvent createOrderEvent(Order order, OrderRequest request) {
-        OrderCreatedEvent event = new OrderCreatedEvent();
-        event.setEventId(OrderEvent.generateEventId());
-        event.setOrderId(order.getId().toString());
-        event.setOrderCode(order.getOrderCode());
-        event.setEventType("ORDER_CREATED");
-        event.setTimestamp(order.getCreatedAt());
-        event.setCustomerId(order.getCustomerId().toString());
-        event.setTotal(order.getTotalAmount());
-        List<Map<String, Object>> items = request.getItems().stream()
-                .map(i -> Map.<String, Object>of(
-                        "productId", i.getProductId(),
-                        "sku", i.getSku(),
-                        "quantity", i.getQuantity(),
-                        "unitPrice", i.getUnitPrice()
-                ))
-                .collect(Collectors.toList());
-        event.setItems(items);
-        return event;
+    private UUID parseUuid(String value, String fieldName) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new InvalidOrderStatusException(fieldName + " không phải UUID hợp lệ: " + value);
+        }
     }
 
-    private OrderStatusChangedEvent createStatusChangedEvent(Order order, OrderStatus from, OrderStatus to) {
-        OrderStatusChangedEvent event = new OrderStatusChangedEvent();
-        event.setEventId(OrderEvent.generateEventId());
-        event.setOrderId(order.getId().toString());
-        event.setOrderCode(order.getOrderCode());
-        event.setEventType("ORDER_STATUS_CHANGED");
-        event.setTimestamp(LocalDateTime.now());
-        event.setFromStatus(from.name());
-        event.setToStatus(to.name());
-        return event;
+    private OrderSource parseSource(String value) {
+        try {
+            return OrderSource.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new InvalidOrderStatusException("Nguồn đơn hàng không hợp lệ: " + value);
+        }
     }
 
-    private OrderResponse mapToResponse(Order order) {
-        List<OrderResponse.OrderItemResponse> itemResponses = order.getOrderItems().stream()
-                .map(this::mapToItemResponse)
-                .collect(Collectors.toList());
+    private OrderStatus parseStatus(String value) {
+        try {
+            return OrderStatus.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new InvalidOrderStatusException("Trạng thái đơn hàng không hợp lệ: " + value);
+        }
+    }
 
-        List<OrderResponse.OrderHistoryResponse> historyResponses = order.getHistories().stream()
-                .map(this::mapToHistoryResponse)
-                .collect(Collectors.toList());
+    private LocalDateTime parseDate(String value, boolean endOfDay) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(value);
+        } catch (DateTimeParseException ignored) {
+            // thử tiếp định dạng yyyy-MM-dd
+        }
+        try {
+            LocalDate date = LocalDate.parse(value);
+            return endOfDay ? date.atTime(LocalTime.MAX) : date.atStartOfDay();
+        } catch (DateTimeParseException e) {
+            throw new InvalidOrderStatusException(
+                    "Ngày không hợp lệ: " + value + " (định dạng yyyy-MM-dd)");
+        }
+    }
 
-        List<PaymentResponse> paymentResponses = order.getPayments().stream()
-                .map(this::mapToPaymentResponse)
-                .collect(Collectors.toList());
-
+    private OrderResponse toResponse(Order order) {
         return OrderResponse.builder()
                 .id(order.getId())
                 .orderCode(order.getOrderCode())
-                .customerId(order.getCustomerId() != null ? order.getCustomerId().toString() : null)
+                .customerId(order.getCustomerId().toString())
                 .customerName(order.getCustomerName())
                 .customerEmail(order.getCustomerEmail())
                 .customerPhone(order.getCustomerPhone())
                 .customerAddress(order.getCustomerAddress())
-                .source(order.getSource() != null ? order.getSource().name() : null)
+                .source(order.getSource().name())
                 .channelOrderId(order.getChannelOrderId())
-                .status(order.getStatus() != null ? order.getStatus().name() : null)
+                .status(order.getStatus().name())
                 .subtotal(order.getSubtotal())
                 .discountAmount(order.getDiscountAmount())
                 .shippingFee(order.getShippingFee())
@@ -328,30 +395,16 @@ public class OrderServiceImpl implements OrderService {
                 .tags(order.getTags())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
-                .items(itemResponses)
-                .histories(historyResponses)
-                .payments(paymentResponses)
+                .items(order.getOrderItems().stream().map(this::toItemResponse).toList())
+                .histories(order.getHistories().stream().map(this::toHistoryResponse).toList())
+                .payments(order.getPayments().stream().map(this::toPaymentResponse).toList())
                 .build();
     }
 
-    private PaymentResponse mapToPaymentResponse(PaymentInfo payment) {
-        return PaymentResponse.builder()
-                .id(payment.getId())
-                .orderId(payment.getOrder() != null ? payment.getOrder().getId().toString() : null)
-                .paymentMethod(payment.getPaymentMethod())
-                .transactionId(payment.getTransactionId())
-                .amount(payment.getAmount())
-                .status(payment.getStatus())
-                .paidAt(payment.getPaidAt())
-                .gatewayResponse(payment.getGatewayResponse())
-                .createdAt(payment.getCreatedAt())
-                .build();
-    }
-
-    private OrderResponse.OrderItemResponse mapToItemResponse(OrderItem item) {
+    private OrderResponse.OrderItemResponse toItemResponse(OrderItem item) {
         return OrderResponse.OrderItemResponse.builder()
                 .id(item.getId())
-                .productId(item.getProductId() != null ? item.getProductId().toString() : null)
+                .productId(item.getProductId().toString())
                 .sku(item.getSku())
                 .productName(item.getProductName())
                 .imageUrl(item.getImageUrl())
@@ -363,14 +416,28 @@ public class OrderServiceImpl implements OrderService {
                 .build();
     }
 
-    private OrderResponse.OrderHistoryResponse mapToHistoryResponse(OrderHistory history) {
+    private OrderResponse.OrderHistoryResponse toHistoryResponse(OrderHistory history) {
         return OrderResponse.OrderHistoryResponse.builder()
                 .id(history.getId())
                 .fromStatus(history.getFromStatus() != null ? history.getFromStatus().name() : null)
-                .toStatus(history.getToStatus() != null ? history.getToStatus().name() : null)
+                .toStatus(history.getToStatus().name())
                 .changedBy(history.getChangedBy())
                 .note(history.getNote())
                 .createdAt(history.getCreatedAt())
+                .build();
+    }
+
+    private PaymentResponse toPaymentResponse(PaymentInfo payment) {
+        return PaymentResponse.builder()
+                .id(payment.getId())
+                .orderId(payment.getOrder().getId().toString())
+                .paymentMethod(payment.getPaymentMethod())
+                .transactionId(payment.getTransactionId())
+                .amount(payment.getAmount())
+                .status(payment.getStatus())
+                .paidAt(payment.getPaidAt())
+                .gatewayResponse(payment.getGatewayResponse())
+                .createdAt(payment.getCreatedAt())
                 .build();
     }
 }

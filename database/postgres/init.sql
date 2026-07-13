@@ -1,6 +1,4 @@
--- Create databases for each microservice
-CREATE DATABASE salehub;
-
+-- Database "salehub" is already created by POSTGRES_DB env var
 \c salehub;
 
 -- =============================================
