@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { type Screen } from "@/types";
 import {
   LayoutDashboard,
@@ -16,20 +17,23 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiGet, type PageResponse } from "@/lib/api";
 
 interface NavItem {
   screen: Screen;
   label: string;
   icon: LucideIcon;
-  badge?: number;
 }
+
+// Chỉ Website là kênh kết nối thật (xem trang Kênh bán hàng)
+const CONNECTED_CHANNELS = 1;
 
 const navItems: NavItem[] = [
   { screen: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { screen: "products", label: "Sản phẩm", icon: Package },
-  { screen: "channels", label: "Kênh bán hàng", icon: Link2, badge: 4 },
-  { screen: "inventory", label: "Tồn kho", icon: Store, badge: 2 },
-  { screen: "orders", label: "Đơn hàng", icon: ShoppingCart, badge: 3 },
+  { screen: "channels", label: "Kênh bán hàng", icon: Link2 },
+  { screen: "inventory", label: "Tồn kho", icon: Store },
+  { screen: "orders", label: "Đơn hàng", icon: ShoppingCart },
   { screen: "shipping", label: "Vận chuyển", icon: Truck },
   { screen: "promotions", label: "Khuyến mãi", icon: Tag },
   { screen: "crm", label: "Khách hàng", icon: Users },
@@ -44,6 +48,20 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentScreen, onNavigate, onLogout }: SidebarProps) {
+  const [pendingOrders, setPendingOrders] = useState(0);
+
+  // Số đơn chờ xử lý thật; đổi màn hình sẽ tự cập nhật lại
+  useEffect(() => {
+    apiGet<PageResponse<unknown>>("/orders/search?status=PENDING&page=0&size=1")
+      .then((res) => setPendingOrders(res.totalElements))
+      .catch(() => setPendingOrders(0));
+  }, [currentScreen]);
+
+  const badges: Partial<Record<Screen, number>> = {
+    channels: CONNECTED_CHANNELS,
+    orders: pendingOrders,
+  };
+
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-56 flex-col bg-[#0F172A]">
       <div className="flex items-center gap-2.5 border-b border-[#1E293B] px-5 py-5">
@@ -60,6 +78,7 @@ export default function Sidebar({ currentScreen, onNavigate, onLogout }: Sidebar
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentScreen === item.screen;
+          const badge = badges[item.screen] ?? 0;
 
           return (
             <button
@@ -74,9 +93,9 @@ export default function Sidebar({ currentScreen, onNavigate, onLogout }: Sidebar
             >
               <Icon className="h-4 w-4 flex-shrink-0" />
               <span className="flex-1 text-left">{item.label}</span>
-              {item.badge && (
+              {badge > 0 && (
                 <span className="ml-auto text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full font-semibold leading-none">
-                  {item.badge}
+                  {badge}
                 </span>
               )}
             </button>

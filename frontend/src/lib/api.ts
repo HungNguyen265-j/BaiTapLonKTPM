@@ -64,6 +64,10 @@ export function apiPost<T>(path: string, data: unknown): Promise<T> {
   return request<T>(path, { method: "POST", body: JSON.stringify(data) });
 }
 
+export function apiDelete(path: string): Promise<null> {
+  return request<null>(path, { method: "DELETE" });
+}
+
 export interface PageResponse<T> {
   content: T[];
   page: number;

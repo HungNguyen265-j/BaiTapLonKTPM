@@ -59,10 +59,15 @@ public class CustomerServiceImpl implements CustomerService {
 
         customer = customerRepository.save(customer);
 
-        kafkaTemplate.send("customer-events", CustomerCreatedEvent.builder()
-                .customerId(customer.getId())
-                .eventType("CUSTOMER_CREATED")
-                .build());
+        // Lỗi phát event không được làm hỏng việc tạo khách (đăng ký tài khoản phụ thuộc hàm này)
+        try {
+            kafkaTemplate.send("customer-events", CustomerCreatedEvent.builder()
+                    .customerId(customer.getId())
+                    .eventType("CUSTOMER_CREATED")
+                    .build());
+        } catch (Exception e) {
+            log.warn("Không gửi được CUSTOMER_CREATED event cho {}: {}", customer.getId(), e.getMessage());
+        }
 
         return toResponse(customer);
     }

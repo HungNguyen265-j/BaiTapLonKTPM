@@ -1,37 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { X, Phone, Mail, MapPin, Users, CheckCircle } from "lucide-react";
+import { X, Phone, Mail, MapPin, Users } from "lucide-react";
+import { apiPost, ApiError } from "@/lib/api";
 
 const genderOptions = [
-  { value: "male", label: "Nam" },
-  { value: "female", label: "Nữ" },
-  { value: "other", label: "Khác" },
-];
-
-const tierOptions = [
-  { value: "bronze", label: "Bronze" },
-  { value: "silver", label: "Silver" },
-  { value: "gold", label: "Gold" },
-  { value: "platinum", label: "Platinum" },
+  { value: "M", label: "Nam" },
+  { value: "F", label: "Nữ" },
+  { value: "O", label: "Khác" },
 ];
 
 interface AddCustomerModalProps {
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function AddCustomerModal({ onClose }: AddCustomerModalProps) {
+export default function AddCustomerModal({ onClose, onSuccess }: AddCustomerModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [gender, setGender] = useState("male");
+  const [gender, setGender] = useState("M");
   const [email, setEmail] = useState("");
   const [dob, setDob] = useState("");
-  const [tier, setTier] = useState("bronze");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState("");
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -41,14 +36,28 @@ export default function AddCustomerModal({ onClose }: AddCustomerModalProps) {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    setApiError("");
+    try {
+      await apiPost("/customers", {
+        name: name.trim(),
+        phone: phone.trim(),
+        gender,
+        email: email.trim() || null,
+        birthday: dob || null,
+        address: address.trim() || null,
+        notes: note.trim() || null,
+        source: "MANUAL",
+      });
       setSuccess(true);
-    }, 1500);
+    } catch (err) {
+      setApiError(err instanceof ApiError ? err.message : "Không lưu được khách hàng, vui lòng thử lại");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (success) {
@@ -69,7 +78,7 @@ export default function AddCustomerModal({ onClose }: AddCustomerModalProps) {
           </p>
           <div className="mt-6">
             <button
-              onClick={onClose}
+              onClick={() => (onSuccess ? onSuccess() : onClose())}
               className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
             >
               Đóng
@@ -179,19 +188,6 @@ export default function AddCustomerModal({ onClose }: AddCustomerModalProps) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Hạng thành viên</label>
-            <select
-              value={tier}
-              onChange={(e) => setTier(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-            >
-              {tierOptions.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Địa chỉ</label>
             <div className="relative">
               <MapPin className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -215,6 +211,12 @@ export default function AddCustomerModal({ onClose }: AddCustomerModalProps) {
               placeholder="Nhập ghi chú..."
             />
           </div>
+
+          {apiError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {apiError}
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-5">
             <button
