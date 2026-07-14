@@ -40,6 +40,7 @@ export default function AppShell({ currentScreen, onNavigate, children }: AppShe
         <Topbar
           screenTitle={currentScreen}
           screenLabel={screenLabels[currentScreen] ?? "Dashboard"}
+          onNavigate={onNavigate}
         />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>

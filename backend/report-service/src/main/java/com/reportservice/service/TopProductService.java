@@ -25,15 +25,18 @@ public class TopProductService {
     public List<TopProduct> generateTopProductsReport(LocalDate startDate, LocalDate endDate, int limit) {
         LocalDate today = LocalDate.now();
         try {
-            List<ProductResponse> products = productServiceClient.getTopProducts(limit, null);
+            // product-service không có số liệu bán theo sản phẩm — lấy danh sách sản phẩm,
+            // số lượng/doanh thu để 0 (bảng top_products chỉ dùng cho hướng mở rộng event-driven)
+            List<ProductResponse> products = productServiceClient.searchProducts(0, limit).getContent();
+            if (products == null) products = List.of();
             List<TopProduct> topProducts = products.stream()
                     .map(p -> TopProduct.builder()
                             .productId(p.getId())
-                            .productName(p.getProductName())
+                            .productName(p.getName())
                             .sku(p.getSku())
-                            .channel(mapChannel(p.getChannel()))
-                            .quantitySold(p.getQuantitySold() != null ? p.getQuantitySold() : 0)
-                            .revenue(p.getRevenue() != null ? p.getRevenue() : BigDecimal.ZERO)
+                            .channel(mapChannel(null))
+                            .quantitySold(0)
+                            .revenue(BigDecimal.ZERO)
                             .reportDate(today)
                             .build())
                     .collect(Collectors.toList());

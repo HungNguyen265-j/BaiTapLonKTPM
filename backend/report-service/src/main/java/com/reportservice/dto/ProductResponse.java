@@ -7,17 +7,17 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
+/** Khớp với ProductResponse thật của product-service. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class ProductResponse {
     private String id;
-    private String productName;
     private String sku;
-    private String channel;
-    private BigDecimal price;
-    private Integer quantitySold;
-    private BigDecimal revenue;
-    private String category;
+    private String name;
+    private String unit;
+    private BigDecimal basePrice;
+    private BigDecimal salePrice;
+    private String status;
 }

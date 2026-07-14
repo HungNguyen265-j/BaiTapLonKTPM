@@ -26,8 +26,8 @@ public class RevenueReportService {
     public List<RevenueReport> generateRevenueReport(LocalDate startDate, LocalDate endDate) {
         List<OrderResponse> orders = fetchOrdersWithFallback(startDate, endDate);
         Map<String, List<OrderResponse>> byChannel = orders.stream()
-                .filter(o -> o.getChannel() != null)
-                .collect(Collectors.groupingBy(OrderResponse::getChannel));
+                .filter(o -> o.getSource() != null)
+                .collect(Collectors.groupingBy(OrderResponse::getSource));
 
         byChannel.forEach((channel, channelOrders) -> saveReportForChannel(channel, channelOrders, startDate, endDate));
 
@@ -44,7 +44,7 @@ public class RevenueReportService {
         try {
             RevenueReport.Channel channel = RevenueReport.Channel.valueOf(channelName.toUpperCase());
             BigDecimal revenue = orders.stream()
-                    .map(OrderResponse::getNetAmount)
+                    .map(OrderResponse::getTotalAmount)
                     .filter(java.util.Objects::nonNull)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             int orderCount = orders.size();
@@ -59,11 +59,11 @@ public class RevenueReportService {
             for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
                 LocalDate finalDate = date;
                 List<OrderResponse> dailyOrders = orders.stream()
-                        .filter(o -> o.getOrderDate() != null && o.getOrderDate().equals(finalDate))
+                        .filter(o -> o.getCreatedAt() != null && o.getCreatedAt().toLocalDate().equals(finalDate))
                         .collect(Collectors.toList());
 
                 BigDecimal dailyRevenue = dailyOrders.stream()
-                        .map(OrderResponse::getNetAmount)
+                        .map(OrderResponse::getTotalAmount)
                         .filter(java.util.Objects::nonNull)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
                 int dailyOrderCount = dailyOrders.size();
@@ -93,7 +93,10 @@ public class RevenueReportService {
 
     private List<OrderResponse> fetchOrdersWithFallback(LocalDate startDate, LocalDate endDate) {
         try {
-            return orderServiceClient.searchOrders(startDate, endDate, null, null);
+            List<OrderResponse> content = orderServiceClient
+                    .searchOrders(startDate.toString(), endDate.toString(), 0, 500)
+                    .getContent();
+            return content != null ? content : List.of();
         } catch (Exception e) {
             log.warn("Failed to fetch orders for revenue report: {}", e.getMessage());
             return List.of();

@@ -42,8 +42,13 @@ public class ReportServiceImpl implements ReportService {
         List<ProductResponse> topProducts = fetchTopProducts();
         List<CustomerResponse> customers = fetchCustomers(startDate, endDate);
 
-        BigDecimal totalRevenue = orders.stream()
-                .map(OrderResponse::getNetAmount)
+        // Đơn hủy không tính vào doanh thu
+        List<OrderResponse> validOrders = orders.stream()
+                .filter(o -> !"CANCELLED".equals(o.getStatus()) && !"REFUNDED".equals(o.getStatus()))
+                .collect(Collectors.toList());
+
+        BigDecimal totalRevenue = validOrders.stream()
+                .map(OrderResponse::getTotalAmount)
                 .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -53,19 +58,19 @@ public class ReportServiceImpl implements ReportService {
                 .distinct()
                 .count();
 
-        Map<String, BigDecimal> revenueByChannel = orders.stream()
-                .filter(o -> o.getNetAmount() != null)
+        Map<String, BigDecimal> revenueByChannel = validOrders.stream()
+                .filter(o -> o.getTotalAmount() != null)
                 .collect(Collectors.groupingBy(
-                        o -> o.getChannel() != null ? o.getChannel() : "UNKNOWN",
-                        Collectors.mapping(OrderResponse::getNetAmount,
+                        o -> o.getSource() != null ? o.getSource() : "UNKNOWN",
+                        Collectors.mapping(OrderResponse::getTotalAmount,
                                 Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))
                 ));
 
-        Map<String, BigDecimal> revenueByDay = orders.stream()
-                .filter(o -> o.getNetAmount() != null && o.getOrderDate() != null)
+        Map<String, BigDecimal> revenueByDay = validOrders.stream()
+                .filter(o -> o.getTotalAmount() != null && o.getCreatedAt() != null)
                 .collect(Collectors.groupingBy(
-                        o -> o.getOrderDate().toString(),
-                        Collectors.mapping(OrderResponse::getNetAmount,
+                        o -> o.getCreatedAt().toLocalDate().toString(),
+                        Collectors.mapping(OrderResponse::getTotalAmount,
                                 Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))
                 ));
 
@@ -115,7 +120,10 @@ public class ReportServiceImpl implements ReportService {
 
     private List<OrderResponse> fetchOrders(LocalDate startDate, LocalDate endDate) {
         try {
-            return orderServiceClient.searchOrders(startDate, endDate, null, null);
+            List<OrderResponse> content = orderServiceClient
+                    .searchOrders(startDate.toString(), endDate.toString(), 0, 500)
+                    .getContent();
+            return content != null ? content : Collections.emptyList();
         } catch (Exception e) {
             log.warn("Failed to fetch orders from order-service: {}", e.getMessage());
             return Collections.emptyList();
@@ -124,7 +132,8 @@ public class ReportServiceImpl implements ReportService {
 
     private List<ProductResponse> fetchTopProducts() {
         try {
-            return productServiceClient.getTopProducts(10, null);
+            List<ProductResponse> content = productServiceClient.searchProducts(0, 10).getContent();
+            return content != null ? content : Collections.emptyList();
         } catch (Exception e) {
             log.warn("Failed to fetch top products from product-service: {}", e.getMessage());
             return Collections.emptyList();
@@ -133,7 +142,8 @@ public class ReportServiceImpl implements ReportService {
 
     private List<CustomerResponse> fetchCustomers(LocalDate startDate, LocalDate endDate) {
         try {
-            return customerServiceClient.searchCustomers(startDate, endDate);
+            List<CustomerResponse> content = customerServiceClient.searchCustomers(0, 200).getContent();
+            return content != null ? content : Collections.emptyList();
         } catch (Exception e) {
             log.warn("Failed to fetch customers from customer-service: {}", e.getMessage());
             return Collections.emptyList();
